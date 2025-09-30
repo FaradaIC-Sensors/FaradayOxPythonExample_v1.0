@@ -1,4 +1,4 @@
-# FaradayOxPythonExample
+# FaradayOxPythonExample_v1.0
 
 ## Dependencies
 
