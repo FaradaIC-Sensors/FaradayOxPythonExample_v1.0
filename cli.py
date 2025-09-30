@@ -8,26 +8,28 @@ from pathlib import Path
 from datetime import datetime
 
 
-def cli_app(port: str = "COM5"):
+def cli_app(port: str = "COM5", *, measure_sht40: bool = True, measure_oxygen: bool = True):
     module = Module()
 
     # Wake device
     ping_module(port)
     time.sleep(0.01)
 
-    # 1. Perform SHT40 (temperature/humidity) measurement set
-    module.control_start_sht40_measurement_set()
-    addr, data = module.serialize_control()
-    send_frame(port, build_registers_write_frame(addr, data), OPERATION_WRITE)
-    time.sleep(0.05)  # brief wait for measurement
-    request_and_log_registers(module, port, header="After SHT40 measurement")
+    # 1. Perform SHT40 (temperature/humidity) measurement set (optional)
+    if measure_sht40:
+        module.control_start_sht40_measurement_set()
+        addr, data = module.serialize_control()
+        send_frame(port, build_registers_write_frame(addr, data), OPERATION_WRITE)
+        time.sleep(0.05)  # brief wait for measurement
+        request_and_log_registers(module, port, header="After SHT40 measurement")
 
-    # 2. Perform oxygen (concentration) measurement set
-    module.control_start_measurement_set()
-    addr, data = module.serialize_control()
-    send_frame(port, build_registers_write_frame(addr, data), OPERATION_WRITE)
-    time.sleep(0.25)  # longer wait if needed for gas measurement
-    request_and_log_registers(module, port, header="After O2 measurement")
+    # 2. Perform oxygen (concentration) measurement set (optional)
+    if measure_oxygen:
+        module.control_start_measurement_set()
+        addr, data = module.serialize_control()
+        send_frame(port, build_registers_write_frame(addr, data), OPERATION_WRITE)
+        time.sleep(0.25)  # longer wait if needed for gas measurement
+        request_and_log_registers(module, port, header="After O2 measurement")
 
 
 def _log_file_path():
