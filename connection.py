@@ -20,6 +20,11 @@ from protocol import (
     OPERATION_WRITE
 )
 import time
+import sys
+
+
+def _print_error(msg: str):
+    print(f"ERROR: {msg}", file=sys.stderr)
 
 
 def ping_module(port):
@@ -54,6 +59,7 @@ def ping_module(port):
                         elif byte == NACK:
                             expected_length = NACK_LENGTH
                         else:
+                            _print_error(f"ping_module({port}) unexpected response op: 0x{byte:02X}")
                             return False
 
             # Got exactly the expected length and ETX
@@ -68,19 +74,24 @@ def ping_module(port):
                 ):
                     return True
                 elif response_bytes[FRAME_OP_POS] == NACK:
+                    _print_error(f"ping_module({port}) got NACK")
                     return False
 
             # Read too many bytes and still no ETX
             if len(response_bytes) > expected_length:
+                _print_error(f"ping_module({port}) response too long (expected {expected_length}, got {len(response_bytes)})")
                 return False
 
             # Timeout 1s
             if (time.time_ns() - start_time) > 1_000_000_000:
+                _print_error(f"ping_module({port}) timeout")
                 return False
 
+            _print_error(f"ping_module({port}) no valid response")
             return False
 
-    except (serial.SerialException, serial.SerialTimeoutException):
+    except (serial.SerialException, serial.SerialTimeoutException) as e:
+        _print_error(f"ping_module({port}) serial error: {e}")
         return False
 
 

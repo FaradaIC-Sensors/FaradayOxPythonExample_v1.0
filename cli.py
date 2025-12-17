@@ -12,7 +12,9 @@ def cli_app(port: str = "COM5", *, measure_sht40: bool = True, measure_oxygen: b
     module = Module()
 
     # Wake device
-    ping_module(port)
+    if not ping_module(port):
+        print(f"ERROR: Could not ping module on {port}")
+        return
     time.sleep(0.01)
 
     # 1. Perform SHT40 (temperature/humidity) measurement set (optional)
@@ -21,7 +23,9 @@ def cli_app(port: str = "COM5", *, measure_sht40: bool = True, measure_oxygen: b
         addr, data = module.serialize_control()
         send_frame(port, build_registers_write_frame(addr, data), OPERATION_WRITE)
         time.sleep(0.05)  # brief wait for measurement
-        request_and_log_registers(module, port, header="After SHT40 measurement")
+        if not request_and_log_registers(module, port, header="After SHT40 measurement"):
+            print("ERROR: Failed to read/log registers after SHT40 measurement")
+            return
 
     # 2. Perform oxygen (concentration) measurement set (optional)
     if measure_oxygen:
@@ -29,7 +33,9 @@ def cli_app(port: str = "COM5", *, measure_sht40: bool = True, measure_oxygen: b
         addr, data = module.serialize_control()
         send_frame(port, build_registers_write_frame(addr, data), OPERATION_WRITE)
         time.sleep(0.25)  # longer wait if needed for gas measurement
-        request_and_log_registers(module, port, header="After O2 measurement")
+        if not request_and_log_registers(module, port, header="After O2 measurement"):
+            print("ERROR: Failed to read/log registers after O2 measurement")
+            return
 
 
 def _log_file_path():
@@ -56,15 +62,22 @@ def _ensure_log_header(path: Path):
             ])
 
 
-def request_and_log_registers(module, port, header=None):
+def request_and_log_registers(module, port, header=None) -> bool:
     status, frame = send_frame(port, build_registers_read_full_register_pageframe(), OPERATION_READ)
     if not status:
-        return
+        print(f"ERROR: Read registers failed on {port} (no ACK/timeout)")
+        return False
     frame_data = process_frame(frame)
     if not frame_data:
-        return
+        op = frame[1] if frame and len(frame) >= 2 else None
+        if op is None:
+            print(f"ERROR: Invalid/empty response frame on {port}")
+        else:
+            print(f"ERROR: Invalid frame/CRC on {port} (op=0x{op:02X}, len={len(frame)})")
+        return False
     if not module.deserialize(frame_data):
-        return
+        print(f"ERROR: Failed to deserialize register page (payload len={len(frame_data)})")
+        return False
 
     if header:
         print(f"\n=== {header} ===")
@@ -87,3 +100,5 @@ def request_and_log_registers(module, port, header=None):
             f"{module.temperature:.6f}",
             f"{module.humidity:.6f}",
         ])
+
+    return True
