@@ -19,6 +19,9 @@ def cli_app(port: str = "COM5", *, measure_sht40: bool = True, measure_oxygen: b
 
     # 1. Perform SHT40 (temperature/humidity) measurement set (optional)
     if measure_sht40:
+        if not ping_module(port):
+            print(f"ERROR: Could not ping module on {port}")
+            return
         module.control_start_sht40_measurement_set()
         addr, data = module.serialize_control()
         send_frame(port, build_registers_write_frame(addr, data), OPERATION_WRITE)
@@ -29,10 +32,16 @@ def cli_app(port: str = "COM5", *, measure_sht40: bool = True, measure_oxygen: b
 
     # 2. Perform oxygen (concentration) measurement set (optional)
     if measure_oxygen:
+        if not ping_module(port):
+            print(f"ERROR: Could not ping module on {port}")
+            return
         module.control_start_measurement_set()
         addr, data = module.serialize_control()
         send_frame(port, build_registers_write_frame(addr, data), OPERATION_WRITE)
         time.sleep(0.25)  # longer wait if needed for gas measurement
+        if not ping_module(port):
+            print(f"ERROR: Could not ping module on {port}")
+            return
         if not request_and_log_registers(module, port, header="After O2 measurement"):
             print("ERROR: Failed to read/log registers after O2 measurement")
             return
